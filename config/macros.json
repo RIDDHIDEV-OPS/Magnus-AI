@@ -1,0 +1,81 @@
+{
+  "work": {
+    "description": "Sets up workspace: opens VS Code, Chrome, and adjusts audio.",
+    "steps": [
+      {
+        "action": "setting",
+        "name": "volume_set",
+        "value": "40"
+      },
+      {
+        "action": "open",
+        "target": "code"
+      },
+      {
+        "action": "open",
+        "target": "chrome"
+      }
+    ]
+  },
+  "study": {
+    "description": "Sets quiet study atmosphere: opens notes, browser, and lowers volume.",
+    "steps": [
+      {
+        "action": "setting",
+        "name": "volume_set",
+        "value": "25"
+      },
+      {
+        "action": "open",
+        "target": "chrome"
+      },
+      {
+        "action": "open",
+        "target": "notepad"
+      }
+    ]
+  },
+  "night": {
+    "description": "Night wind-down: dims screen, lowers volume, and plays relaxing lofi beats.",
+    "steps": [
+      {
+        "action": "setting",
+        "name": "volume_set",
+        "value": "20"
+      },
+      {
+        "action": "setting",
+        "name": "brightness_down",
+        "value": "30"
+      },
+      {
+        "action": "youtube",
+        "query": "lofi hip hop radio beats to relax study to"
+      }
+    ]
+  },
+  "chill": {
+    "description": "Chill mode: sets comfortable volume and plays relaxing background music.",
+    "steps": [
+      {
+        "action": "setting",
+        "name": "volume_set",
+        "value": "35"
+      },
+      {
+        "action": "youtube",
+        "query": "chill ambient music"
+      }
+    ]
+  },
+  "reset": {
+    "description": "Minimizes open windows and returns to clean desktop.",
+    "steps": [
+      {
+        "action": "setting",
+        "name": "show_desktop",
+        "value": ""
+      }
+    ]
+  }
+}

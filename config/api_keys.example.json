@@ -1,0 +1,19 @@
+{
+    "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE",
+    "os_system": "windows",
+    "assistant_name": "MAGNUS AI",
+    "user_name": "Riddhi Das",
+    "wake_word_enabled": false,
+    "push_to_talk_enabled": false,
+    "hud_style": "orb",
+    "input_device": "",
+    "output_device": "",
+    "turn_tuning": {
+        "enabled": true,
+        "silence_ms": 250,
+        "prefix_ms": 50,
+        "end_sensitivity": "high",
+        "start_sensitivity": "high"
+    },
+    "proactive_audio": false
+}
