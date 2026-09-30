@@ -48,6 +48,11 @@ Featuring an interactive Quantum Orb interface with reactive visual waveforms, M
 * **Screen Perception:** Captures and analyzes current desktop activity, code, or documents.
 * **Camera Input:** Webcam video feed integration for real-world object and environment awareness.
 
+### 🚀 Autonomous Macros & Productivity Routines
+* **Preset Multi-Step Modes:** Execute complex routines with a single command (e.g., `activate work mode`, `study mode`, `night mode`, `reset mode`).
+* **Active Window Context:** Real-time awareness of what window/application you are currently working in.
+* **Smart Voice Clipboard:** Read, write, or clear your clipboard hands-free.
+
 ### 🧩 Self-Describing Modular Actions & Plugins
 * Easily extend capabilities by adding Python modules to `actions/` or `plugins/`.
 * Discovered and registered dynamically on application startup.
@@ -60,35 +65,45 @@ Featuring an interactive Quantum Orb interface with reactive visual waveforms, M
 Magnus-AI/
 ├── main.py                   # Core orchestrator — Gemini Live session, audio pipeline, tool routing
 ├── ui.py                     # PyQt6 HUD — Quantum Orb, audio spectrum, status indicators, settings drawer
+├── run_magnus.bat            # 1-Click Windows desktop launcher
+├── setup_shortcut.py         # Automated Desktop Shortcut generator (.lnk)
 ├── setup.py                  # Automated platform-aware dependency installer
 │
 ├── actions/                  # Built-in system capabilities and tools
-│   ├── open_app.py           # Application launcher with Win32 foreground enforcement
+│   ├── active_window.py      # Active foreground window context inspector
+│   ├── macro_manager.py      # Custom routines (Work, Study, Night, Chill, Reset)
+│   ├── clipboard_helper.py   # Hands-free system clipboard reading, copying, and clearing
+│   ├── open_app.py           # Application launcher with Win32 foreground enforcement & process reuse
 │   ├── browser_control.py    # Web browser navigation and tab control
 │   ├── computer_control.py   # Mouse, keyboard, window focus, and desktop automation
 │   ├── computer_settings.py  # System volume, brightness, Wi-Fi, and power management
+│   ├── dev_agent.py          # Autonomous coding, debugging, and file generation
 │   ├── file_controller.py    # Local file creation, movement, renaming, and deletion
 │   ├── file_processor.py     # Document reading, analysis, and summarization
 │   ├── screen_processor.py   # Desktop screen and webcam capture
-│   ├── weather_report.py     # Real-time weather reporting
+│   ├── weather_report.py     # Real-time weather reporting with IP auto-location
 │   ├── web_search.py         # Grounded Google search integration
-│   ├── youtube_video.py      # Media and music playback
-│   └── reminder.py           # Scheduled system alerts and notifications
+│   ├── youtube_video.py      # Media and music playback with auto-unmute
+│   └── reminder.py           # Scheduled system alerts with live background tracking
 │
 ├── core/                     # Internal engine logic
 │   ├── prompt.txt            # System instructions, personality protocols, and execution rules
 │   ├── gemini.py             # Gemini API client, fallback ladder, and error handling
 │   ├── audio_devices.py      # Audio input/output device detection and resolution
 │   ├── action_loader.py      # Dynamic tool discovery and registration engine
-│   └── hotkey.py             # Global push-to-talk key listeners
+│   ├── hotkey.py             # Global push-to-talk key listeners
+│   └── tts.py                # Dual Edge-TTS & pyttsx3 speech engines with multilingual fallback
 │
 ├── memory/                   # State and configuration
 │   ├── config_manager.py     # Settings and API key manager
-│   ├── memory_manager.py     # Long-term memory store reader and writer
-│   └── long_term.json        # Saved user memory and preferences
+│   ├── memory_manager.py     # Long-term memory store reader and writer (thread-safe, atomic)
+│   └── long_term.json        # Saved user memory and preferences (git-ignored)
+│
+├── dashboard/                # Optional local web telemetry interface
 │
 └── config/
-    └── api_keys.json         # API keys and runtime configuration
+    ├── macros.json           # Declarative routine / mode definitions
+    └── api_keys.json         # API keys and runtime configuration (git-ignored)
 ```
 
 ---
@@ -96,7 +111,7 @@ Magnus-AI/
 ## ⚡ Quick Start
 
 ### 1. Requirements
-* **Operating System:** Windows 10/11, macOS, or Linux (Windows recommended for full OS integration)
+* **Operating System:** Windows 10 or 11 (64-bit)
 * **Python:** 3.11, 3.12, or 3.13
 * **Hardware:** Working microphone and speakers / headphones
 * **API Key:** Google Gemini API Key ([Google AI Studio](https://aistudio.google.com/app/apikey))
@@ -123,10 +138,16 @@ Add your Gemini API Key in `config/api_keys.json`:
 ```
 
 ### 4. Running the Assistant
-Launch Magnus AI:
-```bash
-python main.py
-```
+You can launch Magnus AI in any of the following ways:
+
+* **Desktop Shortcut (Recommended):**
+  Run `python setup_shortcut.py` once. A **Magnus AI** shortcut with the custom icon will appear on your desktop. Double-click it anytime to launch!
+* **1-Click Batch Launcher:**
+  Double-click `run_magnus.bat` in the project root folder.
+* **Direct Python Terminal:**
+  ```bash
+  python main.py
+  ```
 
 ---
 
