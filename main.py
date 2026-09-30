@@ -776,7 +776,7 @@ class JarvisLive:
         async def _say():
             try:
                 await self.session.send_client_content(
-                    turns={"role": "user", "parts": [{"text": instruction}]},
+                    turns=[{"role": "user", "parts": [{"text": instruction}]}],
                     turn_complete=True,
                 )
             except Exception as e:
@@ -849,20 +849,26 @@ class JarvisLive:
 
     def _on_text_command(self, text: str):
         if not self._loop or not self.session:
+            self.ui.write_log("SYS: Assistant is still connecting. Please wait a moment...")
             return
-        # Respect wake-word sleep: a typed command must not be answered while
-        # asleep either (the sleep gate is not just for the mic). Wake first with
-        # "Hey Jarvis" or the WAKE NOW button.
         if self._wake_enabled and not self._awake:
-            self.ui.write_log("SYS: I'm asleep â€” say 'Hey Jarvis' or tap WAKE NOW first.")
+            self.ui.write_log("SYS: I'm asleep — say 'Hey Jarvis' or tap WAKE NOW first.")
             return
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"role": "user", "parts": [{"text": text}]},
-                turn_complete=True
-            ),
-            self._loop
-        )
+
+        async def _do_send():
+            try:
+                await self.session.send_client_content(
+                    turns=[{"role": "user", "parts": [{"text": text}]}],
+                    turn_complete=True,
+                )
+            except Exception as e:
+                print(f"[{self._asst_name}] Text send error: {e}")
+                self.ui.write_log(f"ERR: Text send failed — {e}")
+
+        try:
+            asyncio.run_coroutine_threadsafe(_do_send(), self._loop)
+        except Exception as e:
+            print(f"[{self._asst_name}] Error scheduling text send: {e}")
 
     def _tail_active(self) -> bool:
         """True while the speakers may still be finishing our last sentence."""
@@ -956,13 +962,19 @@ class JarvisLive:
     def speak(self, text: str):
         if not self._loop or not self.session:
             return
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"role": "user", "parts": [{"text": text}]},
-                turn_complete=True
-            ),
-            self._loop
-        )
+        async def _do_speak():
+            try:
+                await self.session.send_client_content(
+                    turns=[{"role": "user", "parts": [{"text": text}]}],
+                    turn_complete=True,
+                )
+            except Exception as e:
+                print(f"[{self._asst_name}] speak error: {e}")
+
+        try:
+            asyncio.run_coroutine_threadsafe(_do_speak(), self._loop)
+        except Exception as e:
+            print(f"[{self._asst_name}] Error scheduling speak: {e}")
 
     def speak_error(self, tool_name: str, error: str):
         short = str(error)[:120]
@@ -1239,7 +1251,7 @@ class JarvisLive:
                     if self.session:
                         try:
                             await self.session.send_client_content(
-                                turns={"role": "user", "parts": [{"text": "Say a brief natural goodbye to the user."}]},
+                                turns=[{"role": "user", "parts": [{"text": "Say a brief natural goodbye to the user."}]}],
                                 turn_complete=True,
                             )
                         except Exception:
@@ -1459,10 +1471,10 @@ class JarvisLive:
         src = ("[IMAGE SOURCE: WEBCAM]" if angle == "camera"
                else "[IMAGE SOURCE: SCREEN CAPTURE]")
         await self.session.send_client_content(
-            turns={"role": "user", "parts": [
+            turns=[{"role": "user", "parts": [
                 {"inline_data": {"mime_type": mime_t, "data": b64}},
                 {"text": f"{src}\n\n{question}"},
-            ]},
+            ]}],
             turn_complete=True,
         )
 
@@ -1788,7 +1800,7 @@ class JarvisLive:
             self._turn_done_event.clear()
 
         await self.session.send_client_content(
-            turns={"role": "user", "parts": [{"text": prompt}]},
+            turns=[{"role": "user", "parts": [{"text": prompt}]}],
             turn_complete=True,
         )
         print(f"[{self._asst_name}] Startup greeting sent.")
@@ -1840,7 +1852,7 @@ class JarvisLive:
                 continue
             try:
                 await self.session.send_client_content(
-                    turns={"role": "user", "parts": [{"text": alert}]},
+                    turns=[{"role": "user", "parts": [{"text": alert}]}],
                     turn_complete=True,
                 )
             except Exception as e:
@@ -1870,7 +1882,7 @@ class JarvisLive:
                                 "One brief sentence only."
                             )
                             await self.session.send_client_content(
-                                turns={"role": "user", "parts": [{"text": msg}]},
+                                turns=[{"role": "user", "parts": [{"text": msg}]}],
                                 turn_complete=True,
                             )
                             print(f"[{self._asst_name}] Monitor alert sent.")
@@ -1913,7 +1925,7 @@ class JarvisLive:
                     recent_turns = recent_turns or None,
                 )
                 await self.session.send_client_content(
-                    turns={"role": "user", "parts": [{"text": prompt}]},
+                    turns=[{"role": "user", "parts": [{"text": prompt}]}],
                     turn_complete=True,
                 )
                 print(f"[{self._asst_name}] Proactive check-in.")
@@ -1966,7 +1978,7 @@ class JarvisLive:
                     if self._wake_enabled and not self._awake:
                         self.wake(reason="remote command")
                     await self.session.send_client_content(
-                        turns={"role": "user", "parts": [{"text": text}]},
+                        turns=[{"role": "user", "parts": [{"text": text}]}],
                         turn_complete=True,
                     )
                     self.ui.write_log(f"[Web]: {text}")
