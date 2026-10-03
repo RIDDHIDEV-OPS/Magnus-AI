@@ -5,6 +5,7 @@ Allows Magnus to know what the user is looking at or working on without requirin
 """
 import platform
 import sys
+import re
 
 _SYSTEM = platform.system()
 
@@ -16,6 +17,7 @@ def get_active_window_info() -> dict:
         "process_name": "Unknown",
         "pid": 0,
         "is_focused": False,
+        "document": "",
     }
 
     if _SYSTEM == "Windows":
@@ -41,10 +43,16 @@ def get_active_window_info() -> dict:
 
                     app_map = {
                         "code": "Visual Studio Code",
+                        "cursor": "Cursor AI Editor",
+                        "devenv": "Visual Studio",
+                        "pycharm64": "PyCharm",
+                        "idea64": "IntelliJ IDEA",
+                        "sublime_text": "Sublime Text",
                         "chrome": "Google Chrome",
                         "msedge": "Microsoft Edge",
                         "firefox": "Mozilla Firefox",
                         "brave": "Brave Browser",
+                        "opera": "Opera",
                         "explorer": "Windows Explorer / Desktop",
                         "cmd": "Command Prompt",
                         "powershell": "PowerShell",
@@ -56,8 +64,33 @@ def get_active_window_info() -> dict:
                         "telegram": "Telegram",
                         "whatsapp": "WhatsApp",
                         "taskmgr": "Task Manager",
+                        "winword": "Microsoft Word",
+                        "excel": "Microsoft Excel",
+                        "powerpnt": "Microsoft PowerPoint",
+                        "acrobat": "Adobe Acrobat Reader",
+                        "acrord32": "Adobe Acrobat Reader",
+                        "photoshop": "Adobe Photoshop",
+                        "premiere": "Adobe Premiere Pro",
+                        "steam": "Steam",
+                        "obs64": "OBS Studio",
+                        "obs32": "OBS Studio",
+                        "postman": "Postman",
+                        "vlc": "VLC Media Player",
+                        "wmplayer": "Windows Media Player",
+                        "zoom": "Zoom",
+                        "teams": "Microsoft Teams",
+                        "figma": "Figma",
+                        "blender": "Blender",
                     }
                     info["app_name"] = app_map.get(base_name, base_name.title())
+
+                    # Extract document or page name from title if structured
+                    if title and (" - " in title or " — " in title):
+                        delim = " - " if " - " in title else " — "
+                        parts = [p.strip() for p in title.split(delim)]
+                        if len(parts) >= 2:
+                            # Usually the first part is the document/tab
+                            info["document"] = parts[0]
                 except Exception:
                     pass
         except Exception as e:
@@ -94,10 +127,14 @@ def active_window_tool(
     app = info.get("app_name", "Application")
     title = info.get("title", "")
     proc = info.get("process_name", "")
+    doc = info.get("document", "")
 
-    result = f"Active foreground application: {app}\nWindow Title: '{title}'"
+    lines = [f"Active foreground application: {app}", f"Window Title: '{title}'"]
+    if doc and doc != title:
+        lines.append(f"Current Document/Tab: '{doc}'")
     if proc:
-        result += f"\nProcess: {proc}"
+        lines.append(f"Process: {proc}")
+    result = "\n".join(lines)
 
     return result
 

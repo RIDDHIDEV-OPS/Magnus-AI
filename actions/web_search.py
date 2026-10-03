@@ -384,7 +384,12 @@ def web_search(
 # ── Tool declaration (auto-discovered by core/action_loader.py) ──────────────
 TOOL = {
     "name": "web_search",
-    "description": "Searches the web. Use for ANY question about current facts, events, prices, or topics — always prefer this over guessing. Modes: 'search' (default), 'news' (latest headlines on a topic), 'research' (deep comprehensive answer), 'price' (product cost lookup), 'compare' (side-by-side comparison of items).",
+    "description": (
+        "Searches the web using Google Search. Call this ONLY when the user explicitly asks to search the web, "
+        "or asks for real-time/current events that require live web information (e.g. today's news, current stock prices, "
+        "live weather forecast, latest product prices). For general knowledge, geography, calculations, coding, science, "
+        "and questions you already know, answer directly without searching."
+    ),
     "parameters": {
         "type": "OBJECT",
         "properties": {

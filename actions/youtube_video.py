@@ -210,9 +210,7 @@ def _find_youtube_or_browser_window(browser: str | None = None) -> int | None:
             return last_match_hwnd
         if new_tab_hwnds:
             return new_tab_hwnds[0]
-        if browser_hwnds:
-            return browser_hwnds[0]
-
+        # Note: Do NOT return arbitrary browser_hwnds to avoid overwriting user work tabs.
         return None
     except Exception as e:
         print(f"[YouTube] _find_youtube_or_browser_window error: {e}")
@@ -221,6 +219,13 @@ def _find_youtube_or_browser_window(browser: str | None = None) -> int | None:
 
 def _navigate_existing_tab(hwnd: int, url: str) -> bool:
     """Navigates an existing browser/YouTube tab in-place, stopping any previous song."""
+    old_clip = None
+    try:
+        if _PYPERCLIP_OK:
+            old_clip = pyperclip.paste()
+    except Exception:
+        pass
+
     try:
         import pyautogui
         import time
@@ -257,6 +262,13 @@ def _navigate_existing_tab(hwnd: int, url: str) -> bool:
     except Exception as e:
         print(f"[YouTube] In-place navigation failed: {e}")
         return False
+    finally:
+        if old_clip is not None:
+            try:
+                time.sleep(0.08)
+                pyperclip.copy(old_clip)
+            except Exception:
+                pass
 
 
 def _set_clipboard(text: str) -> None:

@@ -604,12 +604,6 @@ def _open_native(url: str, browser_name: Optional[str], new_tab: bool = False) -
         # No URL → only a window will open; needs the default browser's exe
         name = _detect_default_browser()
 
-    # If url is provided and user didn't ask for a new tab: navigate existing tab in-place!
-    if url and not new_tab:
-        hwnd = _find_browser_window(name)
-        if hwnd:
-            if _navigate_in_place(hwnd, url):
-                return f"Opened in {name or 'browser'}: {url}"
 
     # Specific browser → launch its own executable, exactly like the user would.
     if name:
@@ -826,26 +820,11 @@ class _BrowserSession:
         try:
             self._context = await engine_obj.launch_persistent_context(profile, **kwargs)
             self._page = await self._adopt_page()
-            print(f"[Browser] ✅ Launched [{label}] profile={profile}")
+            print(f"[Browser] ✓ Launched [{label}] profile={profile}")
             return
         except Exception as e:
-            print(f"[Browser] ⚠️  Real profile failed for {label}: {e}")
-
-        # The real profile could not be opened (browser already open / locked
-        # profile / newer Chrome versions block the real profile under
-        # automation). Fall back to a persistent JARVIS automation profile —
-        # accounts logged in here once stay logged in on later sessions too.
-        jarvis_profile = str(Path.home() / ".jarvis_profiles" / self.browser_name)
-        Path(jarvis_profile).mkdir(parents=True, exist_ok=True)
-        print(f"[Browser] Retrying with JARVIS profile: {jarvis_profile}")
-
-        try:
-            self._context = await engine_obj.launch_persistent_context(jarvis_profile, **kwargs)
-            self._page = await self._adopt_page()
-            print(f"[Browser] ✅ Launched [{label}] with JARVIS profile "
-                  f"(sign-ins persist across sessions)")
-        except Exception as e2:
-            raise RuntimeError(f"Could not launch {self.browser_name}: {e2}") from e2
+            print(f"[Browser] ❌  Real profile failed for {label}: {e}")
+            raise RuntimeError(f"Your {self.browser_name} profile is locked because it is already open. Please completely close {self.browser_name} first before asking me to automate the browser.") from e
 
 
     async def _get_page(self) -> Page:

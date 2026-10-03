@@ -1,5 +1,5 @@
 """
-dashboard/server.py — JARVIS Local HTTP Dashboard
+dashboard/server.py — MAGNUS AI Local HTTP Dashboard
 
 Plain HTTP on port 8000 (no SSL warnings, no firewall issues).
 Security at the application layer: AES-256-CBC with session-key-derived key.
@@ -44,8 +44,8 @@ MAX_UPLOAD_MB = 500
 def _make_uploads_dir() -> Path:
     """Return (and create) the cross-platform uploads folder."""
     for candidate in [
-        Path.home() / "Downloads" / "JARVIS Uploads",
-        Path.home() / "Documents" / "JARVIS Uploads",
+        Path.home() / "Downloads" / "MAGNUS AI Uploads",
+        Path.home() / "Documents" / "MAGNUS AI Uploads",
         BASE_DIR / "uploads",
     ]:
         try:
@@ -112,7 +112,7 @@ def _ensure_network_access(port: int) -> None:
     if sys.platform == "win32":
         import ctypes, time
 
-        port_rule = f"JARVIS Dashboard Port {port}"
+        port_rule = f"MAGNUS AI Dashboard Port {port}"
         prog_rule  = "JARVIS Dashboard Python"
         py_exe     = sys.executable
 

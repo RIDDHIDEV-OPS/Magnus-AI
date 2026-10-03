@@ -108,6 +108,31 @@ _APP_ALIASES: dict[str, dict[str, str]] = {
     "steam":              {"Windows": "steam",                   "Darwin": "Steam",                "Linux": "steam"},
     "epic":               {"Windows": "EpicGamesLauncher",       "Darwin": "Epic Games Launcher",  "Linux": "legendary"},
     "epic games":         {"Windows": "EpicGamesLauncher",       "Darwin": "Epic Games Launcher",  "Linux": "legendary"},
+
+    # Common Web & Utilities
+    "browser":            {"Windows": "chrome",                  "Darwin": "Google Chrome",        "Linux": "google-chrome"},
+    "web browser":        {"Windows": "chrome",                  "Darwin": "Google Chrome",        "Linux": "google-chrome"},
+    "internet":           {"Windows": "chrome",                  "Darwin": "Google Chrome",        "Linux": "google-chrome"},
+    "google":             {"Windows": "https://www.google.com",  "Darwin": "https://www.google.com", "Linux": "https://www.google.com"},
+    "gmail":              {"Windows": "https://mail.google.com", "Darwin": "https://mail.google.com", "Linux": "https://mail.google.com"},
+    "mail":               {"Windows": "https://mail.google.com", "Darwin": "https://mail.google.com", "Linux": "https://mail.google.com"},
+    "email":              {"Windows": "https://mail.google.com", "Darwin": "https://mail.google.com", "Linux": "https://mail.google.com"},
+    "maps":               {"Windows": "https://maps.google.com", "Darwin": "https://maps.google.com", "Linux": "https://maps.google.com"},
+    "google maps":        {"Windows": "https://maps.google.com", "Darwin": "https://maps.google.com", "Linux": "https://maps.google.com"},
+    "github":             {"Windows": "https://github.com",      "Darwin": "https://github.com",      "Linux": "https://github.com"},
+    "chatgpt":            {"Windows": "https://chatgpt.com",     "Darwin": "https://chatgpt.com",     "Linux": "https://chatgpt.com"},
+    "command prompt":     {"Windows": "cmd.exe",                 "Darwin": "Terminal",             "Linux": "bash"},
+    "cmd prompt":         {"Windows": "cmd.exe",                 "Darwin": "Terminal",             "Linux": "bash"},
+    "control panel":      {"Windows": "control.exe",             "Darwin": "System Preferences",   "Linux": "gnome-control-center"},
+    "snipping tool":      {"Windows": "snippingtool.exe",        "Darwin": "Screenshot",           "Linux": "gnome-screenshot"},
+    "snip":               {"Windows": "snippingtool.exe",        "Darwin": "Screenshot",           "Linux": "gnome-screenshot"},
+    "screenshot":         {"Windows": "snippingtool.exe",        "Darwin": "Screenshot",           "Linux": "gnome-screenshot"},
+    "media player":       {"Windows": "wmplayer.exe",            "Darwin": "QuickTime Player",     "Linux": "vlc"},
+    "windows media player": {"Windows": "wmplayer.exe",          "Darwin": "QuickTime Player",     "Linux": "vlc"},
+    "wordpad":            {"Windows": "wordpad.exe",             "Darwin": "TextEdit",             "Linux": "libreoffice --writer"},
+    "recycle bin":        {"Windows": "explorer.exe shell:RecycleBinFolder", "Darwin": "Finder",   "Linux": "nautilus"},
+    "trash":              {"Windows": "explorer.exe shell:RecycleBinFolder", "Darwin": "Trash",    "Linux": "nautilus"},
+    "cursor":             {"Windows": "cursor",                  "Darwin": "Cursor",               "Linux": "cursor"},
 }
 
 
@@ -302,6 +327,21 @@ def _bring_app_to_front(app_name: str, raw_name: str = "") -> bool:
     elif "linkedin" in clean:
         terms.extend(["linkedin", "linked in"])
         procs.extend(["linkedin.exe", "applicationframehost.exe"])
+    elif any(k in clean for k in ("code", "vscode", "visual studio code")):
+        terms.extend(["visual studio code", "visual studio", "code"])
+        procs.extend(["code.exe"])
+    elif any(k in clean for k in ("terminal", "cmd", "powershell")):
+        terms.extend(["terminal", "command prompt", "powershell", "windowsterminal"])
+        procs.extend(["windowsterminal.exe", "cmd.exe", "powershell.exe"])
+    elif "notepad" in clean:
+        terms.append("notepad")
+        procs.append("notepad.exe")
+    elif "vlc" in clean:
+        terms.append("vlc")
+        procs.append("vlc.exe")
+    elif "media player" in clean:
+        terms.extend(["windows media player", "media player"])
+        procs.append("wmplayer.exe")
 
     hwnds = _find_window_hwnds(terms, procs)
     for hwnd in hwnds:
@@ -412,12 +452,22 @@ def _is_process_running(app_name: str, raw_name: str = "") -> bool:
     return False
 
 
+def _fast_wait_visible(app_name: str, raw_name: str = "", max_wait: float = 0.25) -> bool:
+    """Briefly poll (max 250ms) for the window to appear without blocking the assistant."""
+    t_end = time.time() + max_wait
+    while time.time() < t_end:
+        if _bring_app_to_front(app_name, raw_name):
+            return True
+        time.sleep(0.04)
+    return True
+
+
 # ── Windows Launcher ─────────────────────────────────────────────────────────
 
 def _launch_windows(app_name: str, raw_name: str = "") -> bool:
     clean = (raw_name or app_name).lower().replace("-", " ").replace("_", " ").strip()
 
-    # 1. Check if a visible window is already open — bring it to front.
+    # 1. Check if a visible window is already open — bring it to front immediately.
     if _bring_app_to_front(app_name, raw_name):
         print(f"[open_app] Existing window found and brought to front for: {raw_name or app_name}")
         return True
@@ -445,33 +495,21 @@ def _launch_windows(app_name: str, raw_name: str = "") -> bool:
                     # Fallback: start via shell which lets Windows pick the right chrome.exe
                     subprocess.Popen(["cmd", "/c", "start", "chrome", "--new-window"],
                                      shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                for _ in range(20):
-                    time.sleep(0.2)
-                    if _bring_app_to_front(app_name, raw_name):
-                        return True
-                return True
+                return _fast_wait_visible(app_name, raw_name)
             except Exception as e:
                 print(f"[open_app] chrome --new-window failed: {e}")
         elif "edge" in clean or "msedge" in clean:
             try:
                 subprocess.Popen(["cmd", "/c", "start", "msedge", "--new-window"],
                                  shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                for _ in range(20):
-                    time.sleep(0.2)
-                    if _bring_app_to_front(app_name, raw_name):
-                        return True
-                return True
+                return _fast_wait_visible(app_name, raw_name)
             except Exception as e:
                 print(f"[open_app] msedge --new-window failed: {e}")
         elif "firefox" in clean:
             try:
                 subprocess.Popen(["cmd", "/c", "start", "firefox", "--new-window"],
                                  shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                for _ in range(20):
-                    time.sleep(0.2)
-                    if _bring_app_to_front(app_name, raw_name):
-                        return True
-                return True
+                return _fast_wait_visible(app_name, raw_name)
             except Exception as e:
                 print(f"[open_app] firefox --new-window failed: {e}")
         # For other apps where the process is alive but windowless, fall through to normal launch
@@ -482,12 +520,7 @@ def _launch_windows(app_name: str, raw_name: str = "") -> bool:
         try:
             import pyautogui
             pyautogui.hotkey("win", "e")
-            # Poll for the new explorer window and ensure it's forced in front of Chrome
-            for _ in range(15):
-                time.sleep(0.15)
-                if _bring_app_to_front("explorer", "file explorer"):
-                    return True
-            return True
+            return _fast_wait_visible("explorer", "file explorer", max_wait=0.3)
         except Exception as e:
             print(f"[open_app] Win+E failed: {e}")
 
@@ -497,11 +530,7 @@ def _launch_windows(app_name: str, raw_name: str = "") -> bool:
         try:
             print(f"[open_app] Launching via StartApp ID: {start_app_id}")
             os.startfile(f"shell:AppsFolder\\{start_app_id}")
-            for _ in range(20):
-                time.sleep(0.15)
-                if _bring_app_to_front(app_name, raw_name):
-                    return True
-            return True
+            return _fast_wait_visible(app_name, raw_name)
         except Exception as e:
             print(f"[open_app] StartApp launch failed: {e}")
 
@@ -509,19 +538,28 @@ def _launch_windows(app_name: str, raw_name: str = "") -> bool:
     if ":" in app_name and not app_name.startswith("http"):
         try:
             os.startfile(app_name)
-            for _ in range(20):
-                time.sleep(0.15)
-                if _bring_app_to_front(app_name, raw_name):
-                    return True
-            return True
+            return _fast_wait_visible(app_name, raw_name)
         except Exception:
             pass
 
-    # 5. Web URLs
+    # 5. Web URLs & Domains
+    target_url = None
     if app_name.startswith("http://") or app_name.startswith("https://"):
+        target_url = app_name
+    elif any(app_name.lower().endswith(ext) for ext in (".com", ".org", ".net", ".io", ".ai", ".co", ".in", ".edu", ".gov")) or app_name.lower().startswith("www."):
+        target_url = f"https://{app_name}" if not app_name.startswith("http") else app_name
+
+    if target_url:
         try:
-            os.startfile(app_name)
-            time.sleep(1.0)
+            from actions.browser_control import _open_native
+            res = _open_native(target_url, None)
+            if res and res.startswith("Opened"):
+                return True
+        except Exception:
+            pass
+        try:
+            os.startfile(target_url)
+            time.sleep(0.1)
             _bring_app_to_front("chrome", "browser")
             return True
         except Exception:
@@ -542,26 +580,18 @@ def _launch_windows(app_name: str, raw_name: str = "") -> bool:
             os.startfile(exe)
         except Exception:
             subprocess.Popen([exe], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(20):
-            time.sleep(0.15)
-            if _bring_app_to_front(app_name, raw_name):
-                return True
-        return True
+        return _fast_wait_visible(app_name, raw_name)
 
     # 7. Fallback: Windows Start Menu search
     try:
         import pyautogui
-        pyautogui.PAUSE = 0.05
+        pyautogui.PAUSE = 0.02
         pyautogui.press("win")
-        time.sleep(0.5)
-        pyautogui.write(raw_name or app_name, interval=0.03)
-        time.sleep(0.6)
+        time.sleep(0.15)
+        pyautogui.write(raw_name or app_name, interval=0.01)
+        time.sleep(0.2)
         pyautogui.press("enter")
-        for _ in range(20):
-            time.sleep(0.15)
-            if _bring_app_to_front(app_name, raw_name):
-                return True
-        return True
+        return _fast_wait_visible(app_name, raw_name, max_wait=0.4)
     except Exception as e:
         print(f"[open_app] Start Menu search failed: {e}")
 

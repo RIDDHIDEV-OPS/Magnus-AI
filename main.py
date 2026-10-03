@@ -307,7 +307,7 @@ def _load_system_prompt() -> str:
         return PROMPT_PATH.read_text(encoding="utf-8")
     except Exception:
         return (
-            "You are JARVIS, Tony Stark's AI assistant. "
+            "You are MAGNUS AI, an advanced AI assistant. "
             "Be concise, direct, and always use the provided tools to complete tasks. "
             "Never simulate or guess results â€” always call the appropriate tool."
         )
@@ -386,7 +386,7 @@ TOOL_DECLARATIONS = [
         "name": "manage_monitor",
         "description": (
             "Add, remove, or list background monitoring topics. "
-            "JARVIS checks these topics once a day and alerts the user when there is a new development. "
+            "MAGNUS AI checks these topics once a day and alerts the user when there is a new development. "
             "Use 'add' when the user says 'monitor X', 'track X', 'follow X'. "
             "Use 'remove' when the user says 'stop monitoring X'. "
             "Use 'list' when the user asks what is being monitored. "
@@ -412,7 +412,7 @@ TOOL_DECLARATIONS = [
         "description": (
             "Shuts down the assistant completely. "
             "Call this when the user expresses intent to end the conversation, "
-            "close the assistant, say goodbye, or stop Jarvis. "
+            "close the assistant, say goodbye, or stop Magnus. "
             "The user can say this in ANY language."
         ),
         "parameters": {
@@ -542,6 +542,15 @@ def _keep_context_of(exc: BaseException) -> bool:
     return True
 
 
+def _format_exc_deep(exc: BaseException) -> str:
+    """Recursively formats all messages and exception types from exc, including ExceptionGroups."""
+    msgs = [f"{type(exc).__name__}: {exc}"]
+    if isinstance(exc, BaseExceptionGroup):
+        for sub in exc.exceptions:
+            msgs.append(_format_exc_deep(sub))
+    return " | ".join(msgs)
+
+
 class JarvisLive:
     def __init__(self, ui: JarvisUI):
         self.ui             = ui
@@ -615,6 +624,8 @@ class JarvisLive:
         self._session_log: list[str] = []          # conversation turns for end-of-session summary
         self._tool_in_flight   = False             # True while executing tool calls — pauses realtime input
         self._is_first_connect = True              # Only initial connect sets wake-word sleep
+        self._speech_hangover  = 0                 # countdown frames after speech ends
+        self._silence_sent_count = 0               # frames of silence sent after hangover
 
         self._enhanced_live = True  # proactive audio; auto-disabled if the server rejects it
         self._tuned_live    = True  # turn-taking / media / thinking knobs; same fallback
@@ -690,7 +701,7 @@ class JarvisLive:
         return True
 
     def _on_wake_detected(self) -> None:
-        """Called from the detector thread when 'Hey Jarvis' is heard."""
+        """Called from the detector thread when 'Hey Magnus' is heard."""
         self.wake(reason="wake word")
 
     def wake(self, reason: str = "wake word") -> None:
@@ -708,7 +719,7 @@ class JarvisLive:
         self._awake = False
         self.set_speaking(False)
         self.ui.set_state("SLEEPING")
-        self.ui.write_log(f"SYS: Sleeping â€” {reason}. Say 'Hey Jarvis' to wake me.")
+        self.ui.write_log(f"SYS: Sleeping â€” {reason}. Say 'Hey Magnus' to wake me.")
 
     async def _run_sleep_watch(self) -> None:
         """Auto-sleep after the configured silence window (wake-word mode only)."""
@@ -762,7 +773,7 @@ class JarvisLive:
 
     def plugin_say(self, instruction: str) -> None:
         """
-        Thread-safe speech channel for plugins: lets a plugin ask JARVIS to
+        Thread-safe speech channel for plugins: lets a plugin ask MAGNUS AI to
         say something short WHILE its run() is still executing (plugins block
         their executor thread, so they can't speak through the tool response
         until they finish). The instruction is injected into the Live session
@@ -852,7 +863,7 @@ class JarvisLive:
             self.ui.write_log("SYS: Assistant is still connecting. Please wait a moment...")
             return
         if self._wake_enabled and not self._awake:
-            self.ui.write_log("SYS: I'm asleep — say 'Hey Jarvis' or tap WAKE NOW first.")
+            self.ui.write_log("SYS: I'm asleep — say 'Hey Magnus' or tap WAKE NOW first.")
             return
 
         async def _do_send():
@@ -891,10 +902,13 @@ class JarvisLive:
             # still needs it to recognise our own voice. It is dropped when the
             # tail expires. What the guard learned about the room always stays.
             self._out_level = 0.0
-        if value:
-            self.ui.set_state("SPEAKING")
-        elif not self.ui.muted:
-            self.ui.set_state("LISTENING")
+        try:
+            if value:
+                self.ui.set_state("SPEAKING")
+            elif not self.ui.muted:
+                self.ui.set_state("LISTENING")
+        except Exception:
+            pass
 
     def set_push_to_talk(self, enabled: bool) -> str:
         """Turn hold-to-talk on or off. Returns the scope actually achieved."""
@@ -938,7 +952,7 @@ class JarvisLive:
             pass
 
     def interrupt(self) -> None:
-        """Stop JARVIS mid-speech: drain queued audio and open mic immediately."""
+        """Stop MAGNUS AI mid-speech: drain queued audio and open mic immediately."""
         self._interrupted = True
         q = self.audio_in_queue
         if q:
@@ -979,7 +993,7 @@ class JarvisLive:
     def speak_error(self, tool_name: str, error: str):
         short = str(error)[:120]
         self.ui.write_log(f"ERR: {tool_name} â€” {short}")
-        self.speak(f"Sir, {tool_name} encountered an error. {short}")
+        self.speak(f"{tool_name} encountered an error. {short}")
 
     def _build_config(self) -> types.LiveConnectConfig:
         from datetime import datetime
@@ -1067,7 +1081,7 @@ class JarvisLive:
                 handle=self._resume_handle
             ),
             # Sliding-window compression: session never dies from a full context
-            # window â€” JARVIS can stay in one conversation for hours
+            # window â€” MAGNUS AI can stay in one conversation for hours
             context_window_compression=types.ContextWindowCompressionConfig(
                 sliding_window=types.SlidingWindow(),
             ),
@@ -1080,7 +1094,7 @@ class JarvisLive:
             ),
         )
         if self._enhanced_live:
-            # Proactive audio: JARVIS stays silent when speech isn't addressed
+            # Proactive audio: MAGNUS AI stays silent when speech isn't addressed
             # to it (background chatter, talking to someone else in the room).
             # (Affective dialog was dropped: gemini-3.1-flash-live does not
             #  support it, and it never reliably detected tone in practice.
@@ -1144,6 +1158,8 @@ class JarvisLive:
         # in config/api_keys.json to true to let it reason instead.
         if get_thinking_enabled():
             out["thinking_config"] = types.ThinkingConfig(thinking_budget=-1)
+        else:
+            out["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
 
         return out
 
@@ -1318,13 +1334,17 @@ class JarvisLive:
             msg = await self.out_queue.get()
             if self._tool_in_flight or not self.session:
                 continue
-            # Gemini Live rejects realtime input while a tool call is resolving (1011).
-            # Queue items are {"data": <bytes>, "mime_type": <str>} from _listen_audio and
-            # the phone relay.
+            chunks = [msg["data"]]
+            while not self.out_queue.empty() and len(chunks) < 3:
+                try:
+                    chunks.append(self.out_queue.get_nowait()["data"])
+                except Exception:
+                    break
+            combined = b"".join(chunks) if len(chunks) > 1 else chunks[0]
             try:
                 await self.session.send_realtime_input(
                     audio=types.Blob(
-                        data=msg["data"],
+                        data=combined,
                         mime_type=msg.get("mime_type", "audio/pcm;rate=16000"),
                     )
                 )
@@ -1344,73 +1364,137 @@ class JarvisLive:
                 return
 
             # ── Wake-word gate ───────────────────────────────────────────────
-            # While asleep, the mic audio NEVER goes to Gemini (nothing is
-            # streamed, so JARVIS can't respond to speech not addressed to it and
-            # nothing leaves the machine). Frames are instead handed to the local
-            # detector, which runs its model in ITS OWN thread — the cost here is
-            # only a queue push, so the audio path is never slowed. When wake word
-            # is off (default) or we're awake, this is a single boolean check.
             if self._wake_enabled and not self._awake:
                 det = self._wake_detector
                 if det is not None:
                     det.feed(indata)
                 return
-            with self._speaking_lock:
-                jarvis_speaking = self._is_speaking
 
-            # ── Barge-in ─────────────────────────────────────────────────────
-            # While JARVIS talks the mic is not streamed, but it is still worth
-            # listening to locally: if the user starts speaking, cut the answer
-            # short the way a person would stop when interrupted.
-            if jarvis_speaking:
+            with self._speaking_lock:
+                magnus_speaking = self._is_speaking
+
+            # Watchdog: if speaking flag is on but no audio played in >150ms, clear it immediately
+            if magnus_speaking and (time.monotonic() - getattr(self, "_last_audio_played", 0.0) > 0.15):
+                self._is_speaking = False
+                magnus_speaking = False
+                if not self.ui.muted:
+                    self.ui.set_state("LISTENING" if self._awake else "SLEEPING")
+
+            if magnus_speaking:
                 return
 
-            # ── Echo tail ─────────────────────────────────────────────────────
-            # The speaking flag has dropped but the speakers have not finished.
-            # Sending this to the model is how an assistant hears itself, decides
-            # it was addressed, and answers its own last sentence. The microphone
-            # stays OPEN — the guard only drops blocks that are our own voice, so
-            # replying the instant it stops still works.
+            # ── Echo tail / Fast Barge-in ────────────────────────────────────
+            lvl = _pcm_level(indata)
             if self._tail_active():
-                try:
-                    if not self._echo.is_user_speech(
-                            indata, SEND_SAMPLE_RATE, _pcm_level(indata)):
+                if lvl > 0.08:
+                    self._tail_until = 0.0      # user speaking ends tail immediately
+                else:
+                    try:
+                        if not self._echo.is_user_speech(
+                                indata, SEND_SAMPLE_RATE, lvl):
+                            return
+                        self._tail_until = 0.0
+                    except Exception:
                         return
-                    self._tail_until = 0.0      # a real voice ends the tail early
-                except Exception:
-                    return
             elif self._echo._hist:
                 self._echo.reset()
 
             # ── Push-to-talk ─────────────────────────────────────────────────
-            # When it is on the microphone is closed by default and the chord
-            # opens it, which is the whole point: nothing leaves the machine
-            # unless you are holding the key.
             if self._ptt_enabled and not self._ptt_held:
                 return
-            
+
             if not self.ui.muted and not self._phone_active:
-                lvl = _pcm_level(indata)
-                if lvl > 0.05:
+                # Always stream audio to Gemini Live — its server-side VAD handles
+                # speech detection. A local RMS gate that cuts the stream entirely
+                # means the server never hears when the user starts speaking again.
+                # Update last_user_speech on genuine voice signal so wake-sleep timer works.
+                try:
+                    rms = float(np.sqrt(np.mean(indata.astype(np.float32) ** 2)))
+                except Exception:
+                    rms = 0.0
+
+                if rms >= 30.0:
                     self._last_user_speech = time.monotonic()
+
                 data = indata.tobytes()
-                loop.call_soon_threadsafe(
-                    self.out_queue.put_nowait,
-                    {"data": data, "mime_type": "audio/pcm;rate=16000"}
-                )
+
+                def _enqueue():
+                    try:
+                        self.out_queue.put_nowait({"data": data, "mime_type": "audio/pcm;rate=16000"})
+                    except asyncio.QueueFull:
+                        try:
+                            self.out_queue.get_nowait()
+                            self.out_queue.put_nowait({"data": data, "mime_type": "audio/pcm;rate=16000"})
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+                loop.call_soon_threadsafe(_enqueue)
+
                 try:
                     self.ui.set_audio_level(lvl)
                 except Exception:
                     pass
+
         try:
             def _open_mic(dev):
+
+                try:
+                    dev_info = sd.query_devices(dev if dev is not None else sd.default.device[0])
+                    hw_rate = int(dev_info.get("default_samplerate", SEND_SAMPLE_RATE))
+                    hw_channels = min(max(1, dev_info.get("max_input_channels", 1)), 2)
+                    dev_name = dev_info.get("name", "Default")
+                except Exception:
+                    hw_rate = SEND_SAMPLE_RATE
+                    hw_channels = CHANNELS
+                    dev_name = "Default"
+
+                print(f"[{self._asst_name}] 🎤 Opening mic #{dev} ({dev_name}) at {hw_rate}Hz, {hw_channels}ch")
+
+                if hw_rate == SEND_SAMPLE_RATE and hw_channels == CHANNELS:
+                    return sd.InputStream(
+                        samplerate=SEND_SAMPLE_RATE,
+                        channels=CHANNELS,
+                        dtype="int16",
+                        blocksize=CHUNK_SIZE,
+                        device=dev,
+                        latency="low",
+                        callback=callback,
+                    )
+
+                # Hardware requires native rate (e.g. 48000Hz stereo) — resample in real-time to 16kHz mono
+                hw_blocksize = int(hw_rate * 0.05)  # 50 ms slices
+
+                def _resample_callback(indata, frames, time_info, status):
+                    # Multi-channel to mono
+                    if indata.ndim > 1 and indata.shape[1] > 1:
+                        mono = indata.mean(axis=1).astype(np.int16)
+                    else:
+                        mono = indata.reshape(-1).astype(np.int16)
+
+                    # Downsample to 16000 Hz
+                    if hw_rate == 16000:
+                        resampled = mono
+                    elif hw_rate % 16000 == 0:
+                        step = hw_rate // 16000
+                        resampled = mono[::step]
+                    else:
+                        import scipy.signal
+                        num_samples = int(len(mono) * 16000 / hw_rate)
+                        resampled = scipy.signal.resample(mono.astype(np.float32), num_samples).astype(np.int16)
+
+                    # Shape to (N, 1) for the main callback
+                    resampled_2d = resampled.reshape(-1, 1)
+                    callback(resampled_2d, len(resampled_2d), time_info, status)
+
                 return sd.InputStream(
-                    samplerate=SEND_SAMPLE_RATE,
-                    channels=CHANNELS,
+                    samplerate=hw_rate,
+                    channels=hw_channels,
                     dtype="int16",
-                    blocksize=CHUNK_SIZE,
+                    blocksize=hw_blocksize,
                     device=dev,
-                    callback=callback,
+                    latency="low",
+                    callback=_resample_callback,
                 )
 
             # Which microphone. resolve() returns None for "system default" and
@@ -1479,7 +1563,7 @@ class JarvisLive:
         )
 
         if self._vision_cam_active:
-            # Camera: stay busy until JARVIS has finished speaking the answer,
+            # Camera: stay busy until MAGNUS AI has finished speaking the answer,
             # then close the preview.
             self._vision_cam_active    = False
             self._vision_close_pending = True
@@ -1670,6 +1754,7 @@ class JarvisLive:
         except Exception:
             pass
 
+        empty_cycles = 0
         try:
             while True:
                 try:
@@ -1678,28 +1763,25 @@ class JarvisLive:
                         timeout=0.1
                     )
                 except asyncio.TimeoutError:
-                    if (
-                        self._turn_done_event
-                        and self._turn_done_event.is_set()
-                        and self.audio_in_queue.empty()
-                    ):
-                        self.set_speaking(False)
-                        self._turn_done_event.clear()
+                    if self.audio_in_queue.empty():
+                        if self._is_speaking:
+                            self.set_speaking(False)
+                        if self._turn_done_event and self._turn_done_event.is_set():
+                            self._turn_done_event.clear()
                     continue
 
                 self.set_speaking(True)
+                self._last_audio_played = time.monotonic()
 
-                # Batch all immediately-available chunks into one write to reduce
-                # thread-pool round-trips (was one asyncio.to_thread per 50ms slice).
-                # Cap at ~200 ms so interrupt() still stops audio within ~200 ms.
+                # Low-latency batch: 2880 bytes ≈ 60 ms at 24 kHz / 16-bit mono for instant speech playback
                 batch = bytearray(chunk)
-                while len(batch) < 9600:   # 9600 bytes â‰ˆ 200 ms at 24 kHz / 16-bit mono
+                while len(batch) < 2880:
                     try:
                         batch.extend(self.audio_in_queue.get_nowait())
                     except asyncio.QueueEmpty:
                         break
 
-                # Drive the HUD waveform and the avatar's mouth from JARVIS's
+                # Drive the HUD waveform and the avatar's mouth from MAGNUS AI's
                 # own voice. The batch is up to 200 ms long, so we hand over a
                 # *schedule* of 20 ms viseme frames instead of a single averaged
                 # level and let the HUD play it out in step with the audio.
@@ -1865,7 +1947,7 @@ class JarvisLive:
         await asyncio.sleep(300)          # wait 5 min after startup before first check
         while True:
             if self.session and self._awake:
-                # Don't interrupt if user spoke recently or JARVIS is mid-sentence
+                # Don't interrupt if user spoke recently or MAGNUS AI is mid-sentence
                 with self._speaking_lock:
                     speaking = self._is_speaking
                 recent_speech = (time.monotonic() - self._last_user_speech) < 30
@@ -1974,7 +2056,7 @@ class JarvisLive:
                     await asyncio.sleep(0.1)
                 if self.session:
                     # A remote command is deliberate control and the phone user
-                    # has no desktop WAKE button â€” so it wakes JARVIS if asleep.
+                    # has no desktop WAKE button â€” so it wakes MAGNUS AI if asleep.
                     if self._wake_enabled and not self._awake:
                         self.wake(reason="remote command")
                     await self.session.send_client_content(
@@ -2076,7 +2158,7 @@ class JarvisLive:
                         self.ui.write_log("SYS: Reconnected â€” conversation restored.")
 
                     # Wake word: if enabled, come up ASLEEP on initial connect
-                    # until the user says "Hey Jarvis" or taps wake in the UI.
+                    # until the user says "Hey Magnus" or taps wake in the UI.
                     # On reconnects mid-session, preserve previous awake state!
                     if self._is_first_connect:
                         self._is_first_connect = False
@@ -2084,7 +2166,7 @@ class JarvisLive:
                             self._ensure_wake_detector()
                             self._awake = False
                             self.ui.set_state("SLEEPING")
-                            self.ui.write_log(f"SYS: {self._asst_name} online — sleeping. Say 'Hey Jarvis' to wake me.")
+                            self.ui.write_log(f"SYS: {self._asst_name} online — sleeping. Say 'Hey Magnus' to wake me.")
                         else:
                             self._awake = True
                             self.ui.set_state("LISTENING")
@@ -2155,12 +2237,13 @@ class JarvisLive:
                     self._conn_backoff = 0
                     continue
 
+                err_str = _format_exc_deep(e)
+
                 # Also clear handle on internal server errors (1011) so dead session handles are not replayed
-                if "1011" in str(e) or "internal error" in str(e).lower():
+                if "1011" in err_str or "internal error" in err_str.lower():
                     self._resume_handle = None
 
-                err_str = str(e)
-                print(f"[{self._asst_name}] Error ({type(e).__name__}): {e}")
+                print(f"[{self._asst_name}] Error: {err_str}")
                 traceback.print_exc()
 
                 # Out of quota, or internal error / unavailable — step down the ladder and reconnect straight away.

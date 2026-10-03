@@ -105,7 +105,7 @@ def save_voice(voice_name: str) -> None:
 
 
 def get_wake_word_enabled() -> bool:
-    """Whether local wake-word gating is on (assistant sleeps until 'Hey Jarvis')."""
+    """Whether local wake-word gating is on (assistant sleeps until 'Hey Magnus')."""
     return load_api_keys().get("wake_word_enabled", False)
 
 
@@ -191,12 +191,12 @@ def get_turn_tuning() -> dict:
             return default
 
     return {
-        "enabled":    bool(cfg.get("enabled", True)),
-        "silence_ms": _int("silence_ms", 250, 150, 3000),
-        "prefix_ms":  _int("prefix_ms", 50, 0, 1000),
-        # "high" = quicker to decide speech has ended.
-        "end_sensitivity":   str(cfg.get("end_sensitivity", "high")).lower(),
-        "start_sensitivity": str(cfg.get("start_sensitivity", "high")).lower(),
+        "enabled":    bool(cfg.get("enabled", False)),
+        "silence_ms": _int("silence_ms", 500, 150, 3000),
+        "prefix_ms":  _int("prefix_ms", 100, 0, 1000),
+        # "normal" = standard conversational pacing
+        "end_sensitivity":   str(cfg.get("end_sensitivity", "normal")).lower(),
+        "start_sensitivity": str(cfg.get("start_sensitivity", "normal")).lower(),
     }
 
 

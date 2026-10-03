@@ -1,7 +1,10 @@
 import json
+import time
 import urllib.request
 from urllib.parse import quote_plus
 
+
+_WEATHER_CACHE = {}  # {cache_key: (timestamp, weather_text)}
 
 def weather_action(
     parameters: dict,
@@ -24,12 +27,22 @@ def weather_action(
     when = (when or "today").strip()
     search_q = city.split(",")[0].strip() if "," in city else city
 
+    # Cache check (5 minutes = 300 seconds)
+    cache_key = f"{search_q.lower()}_{when.lower()}"
+    now_ts = time.time()
+    if cache_key in _WEATHER_CACHE:
+        cached_ts, cached_text = _WEATHER_CACHE[cache_key]
+        if now_ts - cached_ts < 300.0:
+            print(f"[Weather] Cache hit for {cache_key}: {cached_text}")
+            _log(cached_text, player)
+            return cached_text
+
     # 1. Fetch real-time live weather data (fast, no browser popup)
     weather_text = ""
     try:
         url = f"https://wttr.in/{quote_plus(search_q)}?format=j1" if search_q else "https://wttr.in/?format=j1"
         req = urllib.request.Request(url, headers={"User-Agent": "curl/7.68.0"})
-        with urllib.request.urlopen(req, timeout=4) as response:
+        with urllib.request.urlopen(req, timeout=2.5) as response:
             data = json.loads(response.read().decode("utf-8"))
             if not city:
                 try:
@@ -46,19 +59,17 @@ def weather_action(
                     city = "your area"
             cur = data["current_condition"][0]
             w = data["weather"][0]
-            desc = cur["weatherDesc"][0]["value"]
+            desc = cur["weatherDesc"][0]["value"].strip()
             temp_c = cur["temp_C"]
             feels_c = cur["FeelsLikeC"]
-            humidity = cur["humidity"]
-            wind_km = cur["windspeedKmph"]
             max_c = w["maxtempC"]
             min_c = w["mintempC"]
 
             weather_text = (
-                f"In {city}, the weather {when} is {temp_c}°C with {desc}. "
-                f"It feels like {feels_c}°C, humidity is at {humidity}%, and wind speed is {wind_km} km/h. "
+                f"In {city}, it is {temp_c}°C and {desc}, feeling like {feels_c}°C. "
                 f"Today's high is {max_c}°C with a low of {min_c}°C."
             )
+            _WEATHER_CACHE[cache_key] = (now_ts, weather_text)
     except Exception as e:
         print(f"[Weather] wttr.in query failed ({e}), falling back to grounded search...")
 
